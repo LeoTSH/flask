@@ -2,7 +2,7 @@ import os, zipfile
 import sys
 import pandas as pd
 from werkzeug.utils import secure_filename
-from flask import Flask, request, redirect, url_for
+from flask import Flask, request, redirect, url_for, render_template, flash
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -10,7 +10,8 @@ from sqlalchemy import Column, Integer, Boolean, DateTime, String
 
 Base = declarative_base()
 allowed_extensions = set(['zip'])
-app = Flask('test')
+app = Flask('flask_test')
+app.secret_key = 'secret'
 ufolder = './uploads/'
 app.config['UPLOAD_FOLDER'] = ufolder
 
@@ -48,10 +49,14 @@ def insert_db(csv):
 
 @app.route('/uploads', methods = ['GET', 'POST'])
 def upload_file():
+	error = None
 	if request.method == 'POST':
 		file = request.files['file']
 		dlc_type = request.form['type']
 		version = request.form['version']
+		if version == None or version == '':
+			error = ('Please enter a version number')
+			return render_template('uploads.html', error=error)
 		if file and allowed_filename(file.filename):
 			filename = secure_filename(file.filename)
 			if filename.endswith('.zip'):
@@ -59,41 +64,26 @@ def upload_file():
 				zip_file = zipfile.ZipFile(ufolder + filename, 'r')
 				zip_file.extractall(ufolder)
 				zipfile.ZipFile.close(zip_file)
-				for file in os.listdir(ufolder):
-					if file.endswith('.csv'):
-						csv_file = file
-				data = pd.read_csv(ufolder + csv_file, encoding='cp1252')															
-				#insert_db(data)
 				if not os.path.exists(ufolder + dlc_type + '/'):
 					os.makedirs(ufolder + dlc_type + '/')
 					if not os.path.exists(ufolder + dlc_type + '/' + version + '/'):
 						os.makedirs(ufolder + dlc_type + '/' + version + '/')
 				elif not os.path.exists(ufolder + dlc_type + '/' + version + '/'):
 						os.makedirs(ufolder + dlc_type + '/' + version + '/')
-				data.to_csv(ufolder + dlc_type + '/' + version + '/' + filename.split('.')[0] + '.csv', index=False)
+				if filename.split('.')[0] + '.csv' in os.listdir(ufolder + dlc_type + '/' + version + '/'):
+					error = ('Same file exists')
+					return render_template('uploads.html', error=error)
+				else:
+					for file in os.listdir(ufolder):
+						if file.endswith('.csv'):
+							csv_file = file
+					data = pd.read_csv(ufolder + csv_file, encoding='cp1252')															
+					insert_db(data)
+					data.to_csv(ufolder + dlc_type + '/' + version + '/' + filename.split('.')[0] + '.csv', index=False)
 				for files in os.listdir(ufolder):
 					if files.endswith('.csv') or files.endswith('.zip'):
 						os.remove(ufolder + files)			
-	return '''
-	<!doctype html>
-    <title>Upload new File</title>
-    <h1>Upload new File</h1>
-    <form method=post enctype=multipart/form-data>
-    	<b>DLC Type:</b>
-      	<select name="type">
-      		<option value="mtf">mtf</option>
-      		<option value="client_db">client_db</option>
-      		<option value="dlc_ios">dlc_ios</option>
-      		<option value="dlc_android">dlc_android</option>
-      	</select>
-      	
-      	<p><b>Version Number:</b>
-      		<input type="text" name="version">    
-
-      	<p><input type=file name='file'>
-        	<input type=submit value=Upload> 
-    </form>
-    '''
+	return render_template('uploads.html')
 
 if __name__ == '__main__':
 	app.run(debug=True)
