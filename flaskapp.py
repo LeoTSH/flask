@@ -30,22 +30,30 @@ def allowed_filename(filename):
 	filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
 def insert_db(csv):
+	result = True
+	#<user>:<password>@localhost/<db>
 	engine = create_engine('postgresql+psycopg2://postgres:LeoLio123@localhost/postgres')
 	Base.metadata.create_all(engine)
 	session = sessionmaker()
 	session.configure(bind=engine)
 	s = session()
-	for row in range(0, len(csv)):
-		record = TEST_DB(**{
-			'enum': csv['ENUM'][row],
-			'en': csv['EN'][row],
-			'th': csv['TH'][row],
-			'ko': csv['KO'][row],
-			'de': csv['DE'][row]
-		})
-		s.add(record)
-	s.commit()
-	s.close()
+	try:
+		for row in range(0, len(csv)):
+			record = TEST_DB(**{
+				'enum': csv['ENUM'][row],
+				'en': csv['EN'][row],
+				'th': csv['TH'][row],
+				'ko': csv['KO'][row],
+				'de': csv['DE'][row]
+			})
+			s.add(record)
+		s.commit()
+	except:
+		s.rollback()
+		result = False
+	finally:
+		s.close()
+	return result
 
 @app.route('/uploads', methods = ['GET', 'POST'])
 def upload_file():
@@ -66,10 +74,8 @@ def upload_file():
 				zipfile.ZipFile.close(zip_file)
 				if not os.path.exists(ufolder + dlc_type + '/'):
 					os.makedirs(ufolder + dlc_type + '/')
-					if not os.path.exists(ufolder + dlc_type + '/' + version + '/'):
-						os.makedirs(ufolder + dlc_type + '/' + version + '/')
-				elif not os.path.exists(ufolder + dlc_type + '/' + version + '/'):
-						os.makedirs(ufolder + dlc_type + '/' + version + '/')
+				if not os.path.exists(ufolder + dlc_type + '/' + version + '/'):
+					os.makedirs(ufolder + dlc_type + '/' + version + '/')
 				if filename.split('.')[0] + '.csv' in os.listdir(ufolder + dlc_type + '/' + version + '/'):
 					error = ('Same file exists')
 					return render_template('uploads.html', error=error)
@@ -78,11 +84,16 @@ def upload_file():
 						if file.endswith('.csv'):
 							csv_file = file
 					data = pd.read_csv(ufolder + csv_file, encoding='cp1252')															
-					insert_db(data)
-					data.to_csv(ufolder + dlc_type + '/' + version + '/' + filename.split('.')[0] + '.csv', index=False)
-				for files in os.listdir(ufolder):
-					if files.endswith('.csv') or files.endswith('.zip'):
-						os.remove(ufolder + files)			
+					if insert_db(data) == False:
+						error = ('Data error, please kindly verify')
+						return render_template('uploads.html', error=error)
+					else:
+						data.to_csv(ufolder + dlc_type + '/' + version + '/' + filename.split('.')[0] + '.csv', index=False)
+						success = ('File uploaded successfully')
+					for files in os.listdir(ufolder):
+						if files.endswith('.csv') or files.endswith('.zip'):
+							os.remove(ufolder + files)			
+		return render_template('uploads.html', success=success)
 	return render_template('uploads.html')
 
 if __name__ == '__main__':
