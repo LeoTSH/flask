@@ -54,7 +54,7 @@ def insert_db(csv):
 		s.close()
 	return result
 
-@app.route('/uploads', methods = ['POST'])
+@app.route('/uploads', methods = ['GET', 'POST'])
 def upload_file():
 	error = None
 	success = None
@@ -85,9 +85,6 @@ def upload_file():
 				for file in os.listdir(ufolder):
 					if file.endswith('.csv'):
 						csv_file = file
-					else:
-						error = ('Zip file content is not csv, please kindly verify')
-						return render_template('uploads.html', error=error)
 				try:
 					data = pd.read_csv(ufolder + csv_file)															
 				except:
