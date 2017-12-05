@@ -1,25 +1,32 @@
 {% extends "layout.html" %}
 {% block body %}
-	<h1>Upload new File</h1>
+	<h1>Upload New File</h1>
 	{% if error %}
     <p class=error><strong>Error:</strong> {{ error }}
   {% endif %}
+
   {% if success %}
     <p class=success><strong>Success:</strong> {{ success }}
   {% endif %}
+
+  {% if download %}
+    <a href="/download/" target="blank"><p class=download><strong>Download Latest Upload:</strong> {{ download }}</a>
+  {% endif %}
+
     <form method=post enctype=multipart/form-data>
     	<b>DLC Type:</b>
     	<select name="type">
-			<option value="mtf">mtf</option>
-    	  	<option value="client_db">client_db</option>
-      		<option value="dlc_ios">dlc_ios</option>
-      		<option value="dlc_android">dlc_android</option>
+        <option value="mtf">mtf</option>
+    	  <option value="client_db">client_db</option>
+      	<option value="dlc_ios">dlc_ios</option>
+      	<option value="dlc_android">dlc_android</option>
       </select>
       	
       <p><b>Version Number:</b>
       <input type="text" name="version">    
 
-      <p><input type=file name='file'>
-      <input type=submit value=Upload> 
+      <p><input type='file' name='file'>
+      <input type=submit value=Upload>  
+
     </form>
    {% endblock%}
